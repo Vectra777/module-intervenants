@@ -1,101 +1,123 @@
-# Frontend Module ERP Intervenants et disponibilités 
+# Frontend React - Module Intervenants & Études
 
-### Module Intervenants et disponibilités
+Frontend du prototype SEPEFREI (MES N°2) pour visualiser et manipuler le module **Intervenants & disponibilités** via l'API backend.
 
-- CRUD intervenants (nom, compétences, disponibilité, jours disponibles) ;
-- association d’un intervenant à une étude via des affectations (JEH + phases) ;
-- recherche d’intervenants par nom, disponibilité et compétence ;
-- calculs de synthèse (JEH, coût journalier, taux horaire moyen).
-## 3) Périmètre fonctionnel livré
+Stack :
 
-### Intervenants
+- `React 19`
+- `TypeScript`
+- `Vite`
+- `Tailwind CSS v4`
+- `Vitest` (tests unitaires)
 
-- affichage de la liste ;
-- création d’un intervenant ;
-- modification d’un intervenant ;
-- suppression d’un intervenant ;
-- recherche multicritère.
+## Fonctionnalités UI livrées
 
-### Affectations (intervenant ↔ étude)
+- affichage de la liste des intervenants
+- recherche instantanée (nom, disponibilité, compétences)
+- création / modification / suppression d'intervenants
+- création d'affectation (intervenant ↔ étude) avec `JEH` et `phases`
+- modification/suppression d'affectation
+- vue "Études en cours" (filtre par dates)
+- calculs affichés :
+  - JEH total par intervenant
+  - taux horaire estimé à partir du TJM
+  - coût total par étude (calculé côté frontend)
 
-- création d’une affectation avec contrôle anti-doublon (même intervenant + même étude) ;
-- édition/suppression d’une affectation ;
-- phases de mission par affectation (ex: conception backend, création front).
+## Limites actuelles
 
-### Études en cours
-
-- affichage des études en cours selon la période `dateDebut/dateFin` de l’étude ;
-- affichage des intervenants affectés, JEH, phases, taux horaire, taux journalier ;
-- conservation de l’étude même si aucun intervenant n’est affecté.
-
-## 4) Stack technique
-
-- React 19
-- TypeScript
-- Vite
-- Tailwind CSS
-
-Organisation principale :
-
-- `src/App.tsx` : orchestration état + logique métier UI
-- `src/components/` : composants de présentation
-- `src/types/types.ts` : modèle de types métier
-- `src/api/api.ts` : couche d’accès API (prête pour intégration backend)
-
-## 5) Instructions d’exécution
+- pas de CRUD des études dans l'interface (les études doivent exister côté backend / seed)
+- édition d'affectation via `prompt()` (UX basique mais fonctionnelle)
+- pas de routing multi-pages malgré la dépendance `react-router`
 
 ## Prérequis
 
-- Node.js >= 20 ou Bun >= 1.0
+- Node.js `>=20` (22 recommandé)
+- backend FastAPI lancé et accessible
 
-## Installation
+## Configuration
+
+Variable optionnelle :
+
+- `VITE_API_URL` (par défaut : `http://localhost:8000`)
+
+Exemple (`.env.local`) :
+
+```env
+VITE_API_URL=http://localhost:8000
+```
+
+## Lancement local
 
 ```bash
 cd frontend
 npm install
-```
-
-ou
-
-```bash
-cd frontend
-bun install
-```
-
-## Lancement en développement
-
-```bash
 npm run dev
 ```
 
-ou
+Application :
+
+- `http://localhost:5173`
+
+## Exécution Docker (frontend Nginx)
+
+Le frontend est conteneurisé en mode production statique :
+
+- build Vite dans un conteneur Node
+- service des fichiers via Nginx
+- proxy `/api` vers le backend FastAPI
+
+Depuis la racine :
 
 ```bash
-bun run dev
+docker compose up --build
 ```
 
-## Build production
+Accès :
+
+- `http://localhost:8080`
+
+En mode Docker, `VITE_API_URL` est injecté au build avec la valeur `/api`.
+
+## Scripts utiles
 
 ```bash
+npm run dev
 npm run build
-```
-
-## Preview production
-
-```bash
 npm run preview
-```
-
-## Lint
-
-```bash
 npm run lint
+npm test
 ```
 
-## 6) Justification des choix techniques
+## Tests
 
-- **React + TypeScript**: rapidité d’itération + sécurité de typage sur les modèles métier.
-- **Vite**: démarrage instantané et build rapide pour un prototype.
-- **Tailwind**: mise en forme rapide et cohérence visuelle sans dette CSS lourde.
-- **Découpage en composants**: meilleure maintenabilité, testabilité, réutilisation.
-- **Couche API séparée**: facilite le passage des données mock vers backend réel.
+Test présent :
+
+- `tests/moduleMetrics.test.ts`
+
+Couverture visée actuellement :
+
+- fonctions utilitaires de calcul et parsing (`splitCommaSeparatedValues`, taux horaire, coût étude)
+
+## Structure
+
+```text
+src/
+  api/           # client HTTP vers le backend
+  components/    # composants UI
+  types/         # contrats TypeScript (alignés avec l'API camelCase)
+  utils/         # calculs métier côté front
+```
+
+## Choix techniques (justification)
+
+- **React + Vite** : rapidité de mise en place pour une semaine de prototype
+- **TypeScript** : sécurise les contrats API et les formulaires
+- **Tailwind** : itérations UI rapides sans dette CSS lourde
+- **Composants séparés** : facilite la maintenabilité et la démonstration orale
+
+## Améliorations prioritaires
+
+- formulaire CRUD des études côté frontend
+- modal d'édition d'affectation (au lieu de `prompt`)
+- synchronisation du calcul de coût avec l'endpoint backend `/etudes/{id}/cout-total`
+- tests de composants / tests d'intégration (React Testing Library)

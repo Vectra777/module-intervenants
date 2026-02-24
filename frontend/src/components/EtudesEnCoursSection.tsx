@@ -1,10 +1,10 @@
 import type { Affectation, Etude, Intervenant } from '../types/types'
+import { computeEtudeCostTotal, computeHourlyRateFromTjm } from '../utils/moduleMetrics'
 
 interface EtudesEnCoursSectionProps {
   etudesEnCours: Etude[]
   affectations: Affectation[]
   intervenants: Intervenant[]
-  coutJeh: number
   heuresParJeh: number
   onEditAffectation: (affectation: Affectation) => void
   onDeleteAffectation: (affectationId: number) => void
@@ -14,7 +14,6 @@ export function EtudesEnCoursSection({
   etudesEnCours,
   affectations,
   intervenants,
-  coutJeh,
   heuresParJeh,
   onEditAffectation,
   onDeleteAffectation,
@@ -26,6 +25,7 @@ export function EtudesEnCoursSection({
         {etudesEnCours.map((etude) => {
           const affectationsEtude = affectations.filter((affectation) => affectation.etudeId === etude.id)
           const totalJehEtude = affectationsEtude.reduce((sum, affectation) => sum + affectation.jeh, 0)
+          const coutTotalEtude = computeEtudeCostTotal(affectations, intervenants, etude.id)
 
           return (
             <article key={etude.id} className="border-2 border-[#174421] bg-white p-3">
@@ -33,6 +33,9 @@ export function EtudesEnCoursSection({
                 <h3 className="font-bold">{etude.nom}</h3>
                 <span className="border border-[#174421] px-2 py-1 text-xs font-semibold">
                   Total JEH étude: {totalJehEtude}
+                </span>
+                <span className="border border-[#174421] px-2 py-1 text-xs font-semibold">
+                  Coût total: {coutTotalEtude.toFixed(2)} €
                 </span>
               </div>
               <p className="mb-3 text-sm">{etude.description}</p>
@@ -69,9 +72,11 @@ export function EtudesEnCoursSection({
                               {affectation.phases.length > 0 ? affectation.phases.join(', ') : '-'}
                             </td>
                             <td className="border-b border-[#174421]/30 py-2 pr-3">
-                              {(coutJeh / heuresParJeh).toFixed(2)} €/h
+                              {intervenant ? computeHourlyRateFromTjm(intervenant.tjm, heuresParJeh).toFixed(2) : '-'} €/h
                             </td>
-                            <td className="border-b border-[#174421]/30 py-2">{coutJeh} € / JEH</td>
+                            <td className="border-b border-[#174421]/30 py-2">
+                              {intervenant ? `${intervenant.tjm.toFixed(2)} € / JEH` : '-'}
+                            </td>
                             <td className="border-b border-[#174421]/30 py-2 pl-3">
                               <div className="flex gap-2">
                                 <button

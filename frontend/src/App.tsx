@@ -1,77 +1,56 @@
-import { useMemo, useState } from 'react'
-import type { Affectation, CreateIntervenantInput, Disponibilite, Etude, Intervenant } from './types/types'
+import { useEffect, useMemo, useState } from 'react'
+import {
+  createIntervenant,
+  deleteAffectation,
+  deleteIntervenant,
+  getAffectations,
+  getEtudes,
+  getIntervenants,
+  linkIntervenantToEtude,
+  updateAffectation,
+  updateIntervenant,
+} from './api/api'
 import { AffectationForm } from './components/AffectationForm'
 import { EtudesEnCoursSection } from './components/EtudesEnCoursSection'
 import { IntervenantForm } from './components/IntervenantForm'
 import { IntervenantsTable } from './components/IntervenantsTable'
 import { PageHeader } from './components/PageHeader'
 import { SearchBar } from './components/SearchBar'
+import type { Affectation, CreateIntervenantInput, Disponibilite, Etude, Intervenant } from './types/types'
+import { computeHourlyRateFromTjm, splitCommaSeparatedValues } from './utils/moduleMetrics'
 
-const COUT_JEH = 300
 const HEURES_PAR_JEH = 8
 
-const initialIntervenants: Intervenant[] = [
-  {
-    id: 1,
-    nom: 'Ines Martin',
-    email: 'ines.martin@sepefrei.fr',
-    telephone: '0601020304',
-    competences: ['React', 'TypeScript', 'UI'],
-    disponibilite: 'Disponible',
-    nbJoursDisponibles: 4,
-  },
-  {
-    id: 2,
-    nom: 'Yanis Diallo',
-    email: 'yanis.diallo@sepefrei.fr',
-    telephone: '0605060708',
-    competences: ['Python', 'FastAPI', 'SQL'],
-    disponibilite: 'Occupé',
-    nbJoursDisponibles: 1,
-  },
-  {
-    id: 3,
-    nom: 'Sarah Benali',
-    email: 'sarah.benali@sepefrei.fr',
-    telephone: '0611121314',
-    competences: ['Data', 'Power BI', 'Excel'],
-    disponibilite: 'Indisponible',
-    nbJoursDisponibles: 0,
-  },
-]
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === 'object') {
+    const maybeDetails = (error as { details?: unknown }).details
+    if (maybeDetails && typeof maybeDetails === 'object' && 'message' in (maybeDetails as Record<string, unknown>)) {
+      const message = (maybeDetails as { message?: unknown }).message
+      if (typeof message === 'string' && message.trim()) {
+        return message
+      }
+    }
 
-const initialEtudes: Etude[] = [
-  {
-    id: 1,
-    nom: 'Audit CRM',
-    description: 'Refonte du suivi client et process commercial.',
-    dateDebut: '2026-02-01',
-    dateFin: '2026-04-15',
-  },
-  {
-    id: 2,
-    nom: 'Dashboard RH',
-    description: 'Tableau de bord RH et indicateurs staffing.',
-    dateDebut: '2026-02-10',
-    dateFin: '2026-03-30',
-  },
-]
+    const message = (error as { message?: unknown }).message
+    if (typeof message === 'string' && message.trim()) {
+      return message
+    }
+  }
 
-const initialAffectations: Affectation[] = [
-  { id: 1, intervenantId: 1, etudeId: 1, jeh: 5, phases: ['Conception backend', 'API CRUD'] },
-  { id: 2, intervenantId: 2, etudeId: 1, jeh: 3, phases: ['Modélisation base de données'] },
-  { id: 3, intervenantId: 1, etudeId: 2, jeh: 2, phases: ['Création front', 'Tests UI'] },
-]
+  return fallback
+}
 
 function App() {
-  const [intervenants, setIntervenants] = useState<Intervenant[]>(initialIntervenants)
-  const [etudes] = useState<Etude[]>(initialEtudes)
-  const [affectations, setAffectations] = useState<Affectation[]>(initialAffectations)
+  const [intervenants, setIntervenants] = useState<Intervenant[]>([])
+  const [etudes, setEtudes] = useState<Etude[]>([])
+  const [affectations, setAffectations] = useState<Affectation[]>([])
+  const [loading, setLoading] = useState(true)
+  const [apiError, setApiError] = useState('')
   const [search, setSearch] = useState('')
   const [editingIntervenantId, setEditingIntervenantId] = useState<number | null>(null)
   const [affectationForm, setAffectationForm] = useState({
-    intervenantId: initialIntervenants[0]?.id ?? 0,
-    etudeId: initialEtudes[0]?.id ?? 0,
+    intervenantId: 0,
+    etudeId: 0,
     jeh: 1,
     phasesInput: '',
   })
@@ -81,10 +60,44 @@ function App() {
     email: '',
     telephone: '',
     competences: [],
+    tjm: 450,
     disponibilite: 'Disponible',
     nbJoursDisponibles: 5,
   })
   const [competencesInput, setCompetencesInput] = useState('')
+
+  const loadData = async () => {
+    setApiError('')
+    setLoading(true)
+    try {
+      const [intervenantsData, etudesData, affectationsData] = await Promise.all([
+        getIntervenants(),
+        getEtudes(),
+        getAffectations(),
+      ])
+      setIntervenants(intervenantsData)
+      setEtudes(etudesData)
+      setAffectations(affectationsData)
+    } catch (error) {
+      setApiError(getErrorMessage(error, 'Impossible de charger les données depuis le backend.'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadData()
+  }, [])
+
+  useEffect(() => {
+    setAffectationForm((current) => ({
+      ...current,
+      intervenantId: intervenants.some((item) => item.id === current.intervenantId)
+        ? current.intervenantId
+        : (intervenants[0]?.id ?? 0),
+      etudeId: etudes.some((item) => item.id === current.etudeId) ? current.etudeId : (etudes[0]?.id ?? 0),
+    }))
+  }, [intervenants, etudes])
 
   const filteredIntervenants = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -93,11 +106,7 @@ function App() {
     }
 
     return intervenants.filter((intervenant) => {
-      const haystack = [
-        intervenant.nom,
-        intervenant.disponibilite,
-        intervenant.competences.join(' '),
-      ]
+      const haystack = [intervenant.nom, intervenant.disponibilite, intervenant.competences.join(' ')]
         .join(' ')
         .toLowerCase()
       return haystack.includes(query)
@@ -110,75 +119,17 @@ function App() {
       .reduce((sum, affectation) => sum + affectation.jeh, 0)
 
   const getTauxHoraireMoyen = (intervenantId: number) => {
-    const jeh = getJehByIntervenant(intervenantId)
-    if (jeh === 0) {
+    const intervenant = intervenants.find((item) => item.id === intervenantId)
+    if (!intervenant) {
       return 0
     }
-    return (jeh * COUT_JEH) / (jeh * HEURES_PAR_JEH)
+    return computeHourlyRateFromTjm(intervenant.tjm, HEURES_PAR_JEH)
   }
 
   const etudesEnCours = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10)
     return etudes.filter((etude) => etude.dateDebut <= today && etude.dateFin >= today)
   }, [etudes])
-
-  const handleCreateIntervenant = () => {
-    if (!form.nom.trim()) {
-      return
-    }
-
-    const competences = competencesInput
-      .split(',')
-      .map((item) => item.trim())
-      .filter(Boolean)
-
-    if (editingIntervenantId) {
-      setIntervenants((current) =>
-        current.map((item) =>
-          item.id === editingIntervenantId
-            ? {
-                ...item,
-                ...form,
-                nom: form.nom.trim(),
-                competences,
-              }
-            : item,
-        ),
-      )
-      setEditingIntervenantId(null)
-    } else {
-      const newIntervenant: Intervenant = {
-        id: Date.now(),
-        ...form,
-        nom: form.nom.trim(),
-        competences,
-      }
-      setIntervenants((current) => [newIntervenant, ...current])
-    }
-
-    setForm({
-      nom: '',
-      email: '',
-      telephone: '',
-      competences: [],
-      disponibilite: 'Disponible',
-      nbJoursDisponibles: 5,
-    })
-    setCompetencesInput('')
-  }
-
-  const handleEditIntervenant = (intervenant: Intervenant) => {
-    setEditingIntervenantId(intervenant.id)
-    setForm({
-      nom: intervenant.nom,
-      email: intervenant.email,
-      telephone: intervenant.telephone,
-      competences: intervenant.competences,
-      disponibilite: intervenant.disponibilite,
-      nbJoursDisponibles: intervenant.nbJoursDisponibles,
-    })
-    setCompetencesInput(intervenant.competences.join(', '))
-  }
 
   const resetForm = () => {
     setEditingIntervenantId(null)
@@ -187,21 +138,71 @@ function App() {
       email: '',
       telephone: '',
       competences: [],
+      tjm: 450,
       disponibilite: 'Disponible',
       nbJoursDisponibles: 5,
     })
     setCompetencesInput('')
   }
 
-  const handleDeleteIntervenant = (intervenantId: number) => {
-    setIntervenants((current) => current.filter((item) => item.id !== intervenantId))
-    setAffectations((current) => current.filter((item) => item.intervenantId !== intervenantId))
-    if (editingIntervenantId === intervenantId) {
+  const handleCreateIntervenant = async () => {
+    setApiError('')
+
+    if (!form.nom.trim()) {
+      return
+    }
+
+    const competences = splitCommaSeparatedValues(competencesInput)
+
+    const payload: CreateIntervenantInput = {
+      ...form,
+      nom: form.nom.trim(),
+      competences,
+    }
+
+    try {
+      if (editingIntervenantId) {
+        const updated = await updateIntervenant(editingIntervenantId, payload)
+        setIntervenants((current) => current.map((item) => (item.id === updated.id ? updated : item)))
+      } else {
+        const created = await createIntervenant(payload)
+        setIntervenants((current) => [created, ...current])
+      }
       resetForm()
+    } catch (error) {
+      setApiError(getErrorMessage(error, 'Impossible de sauvegarder l’intervenant.'))
     }
   }
 
-  const handleEditAffectation = (affectation: Affectation) => {
+  const handleEditIntervenant = (intervenant: Intervenant) => {
+    setEditingIntervenantId(intervenant.id)
+    setForm({
+      nom: intervenant.nom,
+      email: intervenant.email ?? '',
+      telephone: intervenant.telephone ?? '',
+      competences: intervenant.competences,
+      tjm: intervenant.tjm,
+      disponibilite: intervenant.disponibilite,
+      nbJoursDisponibles: intervenant.nbJoursDisponibles,
+    })
+    setCompetencesInput(intervenant.competences.join(', '))
+  }
+
+  const handleDeleteIntervenant = async (intervenantId: number) => {
+    setApiError('')
+    try {
+      await deleteIntervenant(intervenantId)
+      setIntervenants((current) => current.filter((item) => item.id !== intervenantId))
+      setAffectations((current) => current.filter((item) => item.intervenantId !== intervenantId))
+      if (editingIntervenantId === intervenantId) {
+        resetForm()
+      }
+    } catch (error) {
+      setApiError(getErrorMessage(error, 'Impossible de supprimer l’intervenant.'))
+    }
+  }
+
+  const handleEditAffectation = async (affectation: Affectation) => {
     const jehInput = window.prompt('Nouveau JEH pour cette affectation :', String(affectation.jeh))
     if (!jehInput) {
       return
@@ -212,24 +213,33 @@ function App() {
       return
     }
 
-    setAffectations((current) =>
-      current.map((item) =>
-        item.id === affectation.id
-          ? {
-              ...item,
-              jeh: newJeh,
-            }
-          : item,
-      ),
-    )
+    setApiError('')
+    try {
+      const updated = await updateAffectation(affectation.id, { jeh: newJeh })
+      setAffectations((current) => current.map((item) => (item.id === updated.id ? updated : item)))
+    } catch (error) {
+      setApiError(getErrorMessage(error, 'Impossible de modifier l’affectation.'))
+    }
   }
 
-  const handleDeleteAffectation = (affectationId: number) => {
-    setAffectations((current) => current.filter((item) => item.id !== affectationId))
+  const handleDeleteAffectation = async (affectationId: number) => {
+    setApiError('')
+    try {
+      await deleteAffectation(affectationId)
+      setAffectations((current) => current.filter((item) => item.id !== affectationId))
+    } catch (error) {
+      setApiError(getErrorMessage(error, 'Impossible de supprimer l’affectation.'))
+    }
   }
 
-  const handleCreateAffectation = () => {
+  const handleCreateAffectation = async () => {
     setAffectationError('')
+    setApiError('')
+
+    if (intervenants.length === 0 || etudes.length === 0) {
+      setAffectationError('Ajoute d’abord au moins un intervenant et une étude côté backend (ou lance le seed).')
+      return
+    }
 
     if (!affectationForm.intervenantId || !affectationForm.etudeId || affectationForm.jeh <= 0) {
       setAffectationError('Merci de renseigner un intervenant, une étude et un JEH valide.')
@@ -246,23 +256,24 @@ function App() {
       return
     }
 
-    const newAffectation: Affectation = {
-      id: Date.now(),
-      intervenantId: affectationForm.intervenantId,
-      etudeId: affectationForm.etudeId,
-      jeh: affectationForm.jeh,
-      phases: affectationForm.phasesInput
-        .split(',')
-        .map((phase) => phase.trim())
-        .filter(Boolean),
-    }
+    try {
+      const created = await linkIntervenantToEtude({
+        intervenantId: affectationForm.intervenantId,
+        etudeId: affectationForm.etudeId,
+        jeh: affectationForm.jeh,
+        phases: splitCommaSeparatedValues(affectationForm.phasesInput),
+      })
 
-    setAffectations((current) => [newAffectation, ...current])
-    setAffectationForm((current) => ({
-      ...current,
-      jeh: 1,
-      phasesInput: '',
-    }))
+      setAffectations((current) => [created, ...current])
+      setAffectationForm((current) => ({
+        ...current,
+        jeh: 1,
+        phasesInput: '',
+      }))
+    } catch (error) {
+      const message = getErrorMessage(error, 'Impossible de créer l’affectation.')
+      setAffectationError(message)
+    }
   }
 
   const disponibiliteOptions: Disponibilite[] = ['Disponible', 'Indisponible', 'Occupé']
@@ -271,6 +282,19 @@ function App() {
     <main className="min-h-screen bg-[#f5f1e6] px-4 py-6 text-[#174421] md:px-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <PageHeader />
+
+        {apiError ? (
+          <section className="border-2 border-red-700 bg-red-50 p-4 text-sm font-semibold text-red-700">
+            {apiError}
+          </section>
+        ) : null}
+
+        {loading ? (
+          <section className="border-2 border-[#174421] bg-[#fffdf7] p-4 text-sm font-semibold">
+            Chargement des données…
+          </section>
+        ) : null}
+
         <SearchBar search={search} onChange={setSearch} />
 
         <section className="grid gap-4 lg:grid-cols-3">
@@ -287,9 +311,13 @@ function App() {
             form={form}
             competencesInput={competencesInput}
             disponibiliteOptions={disponibiliteOptions}
-            onSubmit={handleCreateIntervenant}
+            
+            onSubmit={() => {
+              void handleCreateIntervenant()
+            }}
             onFieldChange={(field, value) => setForm((current) => ({ ...current, [field]: value }))}
             onCompetencesChange={setCompetencesInput}
+            onTjmChange={(value) => setForm((current) => ({ ...current, tjm: Number.isFinite(value) ? value : 0 }))}
             onDisponibiliteChange={(value) => setForm((current) => ({ ...current, disponibilite: value }))}
             onNbJoursChange={(value) => setForm((current) => ({ ...current, nbJoursDisponibles: value }))}
             onCancelEdit={resetForm}
@@ -301,25 +329,26 @@ function App() {
           etudes={etudes}
           values={affectationForm}
           error={affectationError}
-          onSubmit={handleCreateAffectation}
-          onIntervenantChange={(intervenantId) =>
-            setAffectationForm((current) => ({ ...current, intervenantId }))
-          }
+          onSubmit={() => {
+            void handleCreateAffectation()
+          }}
+          onIntervenantChange={(intervenantId) => setAffectationForm((current) => ({ ...current, intervenantId }))}
           onEtudeChange={(etudeId) => setAffectationForm((current) => ({ ...current, etudeId }))}
           onJehChange={(jeh) => setAffectationForm((current) => ({ ...current, jeh }))}
-          onPhasesChange={(phasesInput) =>
-            setAffectationForm((current) => ({ ...current, phasesInput }))
-          }
+          onPhasesChange={(phasesInput) => setAffectationForm((current) => ({ ...current, phasesInput }))}
         />
 
         <EtudesEnCoursSection
           etudesEnCours={etudesEnCours}
           affectations={affectations}
           intervenants={intervenants}
-          coutJeh={COUT_JEH}
           heuresParJeh={HEURES_PAR_JEH}
-          onEditAffectation={handleEditAffectation}
-          onDeleteAffectation={handleDeleteAffectation}
+          onEditAffectation={(affectation) => {
+            void handleEditAffectation(affectation)
+          }}
+          onDeleteAffectation={(affectationId) => {
+            void handleDeleteAffectation(affectationId)
+          }}
         />
       </div>
     </main>

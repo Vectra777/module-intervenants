@@ -6,6 +6,7 @@ export type Intervenant = {
     email: string
     telephone: string
     competences: string[]
+    tjm: number
     disponibilite: Disponibilite
     nbJoursDisponibles: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7
 }
@@ -55,4 +56,3 @@ export type ApiError = {
     status: number
     details?: unknown
 }
-

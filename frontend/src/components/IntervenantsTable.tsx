@@ -26,6 +26,7 @@ export function IntervenantsTable({
               <th className="border-b-2 border-[#174421] py-2 pr-3">Jours dispo</th>
               <th className="border-b-2 border-[#174421] py-2 pr-3">Disponibilité</th>
               <th className="border-b-2 border-[#174421] py-2 pr-3">Compétences</th>
+              <th className="border-b-2 border-[#174421] py-2 pr-3">TJM</th>
               <th className="border-b-2 border-[#174421] py-2 pr-3">JEH affecté</th>
               <th className="border-b-2 border-[#174421] py-2">Taux horaire moyen</th>
               <th className="border-b-2 border-[#174421] py-2 pl-3">Actions</th>
@@ -42,6 +43,7 @@ export function IntervenantsTable({
                   <td className="border-b border-[#174421]/30 py-2 pr-3">{intervenant.nbJoursDisponibles}</td>
                   <td className="border-b border-[#174421]/30 py-2 pr-3">{intervenant.disponibilite}</td>
                   <td className="border-b border-[#174421]/30 py-2 pr-3">{intervenant.competences.join(', ') || '-'}</td>
+                  <td className="border-b border-[#174421]/30 py-2 pr-3">{intervenant.tjm.toFixed(2)} €</td>
                   <td className="border-b border-[#174421]/30 py-2 pr-3">{jehIntervenant} JEH</td>
                   <td className="border-b border-[#174421]/30 py-2">
                     {tauxHoraireMoyen > 0 ? `${tauxHoraireMoyen.toFixed(2)} €/h` : '-'}

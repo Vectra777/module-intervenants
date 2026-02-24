@@ -8,6 +8,7 @@ interface IntervenantFormProps {
   onSubmit: () => void
   onFieldChange: (field: 'nom' | 'email' | 'telephone', value: string) => void
   onCompetencesChange: (value: string) => void
+  onTjmChange: (value: number) => void
   onDisponibiliteChange: (value: Disponibilite) => void
   onNbJoursChange: (value: Intervenant['nbJoursDisponibles']) => void
   onCancelEdit: () => void
@@ -21,6 +22,7 @@ export function IntervenantForm({
   onSubmit,
   onFieldChange,
   onCompetencesChange,
+  onTjmChange,
   onDisponibiliteChange,
   onNbJoursChange,
   onCancelEdit,
@@ -61,6 +63,15 @@ export function IntervenantForm({
           value={competencesInput}
           onChange={(event) => onCompetencesChange(event.target.value)}
           placeholder="Compétences (séparées par virgule)"
+          className="w-full border-2 border-[#174421] bg-white px-3 py-2"
+        />
+        <input
+          type="number"
+          min={1}
+          step="0.01"
+          value={form.tjm}
+          onChange={(event) => onTjmChange(Number(event.target.value))}
+          placeholder="TJM (€)"
           className="w-full border-2 border-[#174421] bg-white px-3 py-2"
         />
         <div className="grid grid-cols-2 gap-3">
